@@ -1,28 +1,42 @@
-const { spawn } = require('child_process');
-const request = require('request');
-const test = require('tape');
+const express = require("express");
+const axios = require("axios");
+const path = require("path");
 
-// Start the app
-const env = Object.assign({}, process.env, {PORT: 5000});
-const child = spawn('node', ['index.js'], {env});
+const app = express()
+  .set("port", 3002)
+  .set("views", path.join(__dirname, "views"))
+  .set("view engine", "ejs");
 
-test('responds to requests', (t) => {
-  t.plan(4);
+// Static public files
+app.use(express.static(path.join(__dirname, "public")));
 
-  // Wait until the server is ready
-  child.stdout.on('data', _ => {
-    // Make a request to our app
-    request('http://127.0.0.1:5000', (error, response, body) => {
-      // stop the server
-      child.kill();
+const leaderboards = [];
 
-      // No error
-      t.false(error);
-      // Successful response
-      t.equal(response.statusCode, 200);
-      // Assert content checks
-      t.notEqual(body.indexOf("Get ready"), -1);
-      t.notEqual(body.indexOf("for OpenSea!"), -1);
+app.get("/leaderboards", async function (req, res) {
+  let proxy = "https://bpos-cors.herokuapp.com/";
+  let url = "https://bpos-api.herokuapp.com/api/token/";
+  let supply = "https://bpos-api.herokuapp.com/leaderboards";
+  await axios
+    .get(proxy + url, {
+      headers: {
+        "Content-Type": "application/json",
+        "Access-Control-Allow-Origin": "*",
+      },
+    })
+    .then((res) => {
+      const temp = res.data;
+
+      temp.sort((a, b) => b.score - a.score);
+      setLeaderboards(temp);
+      setLoading(false);
     });
-  });
+});
+
+app.post("/leaderboards", async function (req, res) {
+  // log request body
+  console.log(req.body);
+});
+
+app.listen(app.get("port"), function () {
+  console.log("Server started on port " + app.get("port"));
 });
